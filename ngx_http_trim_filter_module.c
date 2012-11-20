@@ -146,7 +146,7 @@ ngx_http_trim_header_filter(ngx_http_request_t *r)
     }
 
     ngx_str_set(&ctx->pre, "</pre");
-    ngx_str_set(&ctx->comment, "!-->");
+    ngx_str_set(&ctx->comment, "-->");
     ngx_str_set(&ctx->textarea, "</textarea");
 
     ngx_http_set_ctx(r, ctx, ngx_http_trim_filter_module);
@@ -193,8 +193,8 @@ ngx_http_trim_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
             }
 
             cl->buf->memory = 1;
-            cl->buf->pos = (u_char *) "-->";
-            cl->buf->last = cl->buf->pos + sizeof("-->") - 1;
+            cl->buf->pos = ctx->comment.data;
+            cl->buf->last = cl->buf->pos + ctx->comment.len;
 
             if (prev) {
                cl->next = prev->next;
@@ -273,7 +273,7 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                 break;
             case '!':
                 ctx->state = trim_state_tag_comment;
-                ctx->look_comment = 1;
+                ctx->look_comment = 0;
                 break;
             case 'p':
                 ctx->state = trim_state_tag_pre;
@@ -297,7 +297,7 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
             if (look == ch) {
                 if (ctx->look_comment == ctx->comment.len - 1 - 1) {
                     ctx->state = trim_state_comment;
-                    ctx->look_comment = 1;
+                    ctx->look_comment = 0;
 
                 } else {
                     ctx->look_comment++;
@@ -386,10 +386,9 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                     ctx->state = trim_state_text;
 
                     if (conf->comment_enable) {
-                        if ((size_t) (read - buf->pos) + 1
-                            >= sizeof("-->") - 1)
-                        {
-                            write = ngx_cpymem(write, "-->", sizeof("-->") - 1);
+                        if ((size_t) (read - buf->pos) >= ctx->look_comment) {
+                            write = ngx_cpymem(write, ctx->comment.data,
+                                               ctx->comment.len);
 
                         } else {
                             ctx->save_comment = 1;
@@ -401,7 +400,7 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                 }
 
             } else if (look != '-') {
-                ctx->look_comment = 1;
+                ctx->look_comment = 0;
             }
 
             if (conf->comment_enable) {
