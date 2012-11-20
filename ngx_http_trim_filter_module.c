@@ -351,7 +351,7 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
             break;
 
         case trim_state_tag_textarea:
-            look = (ngx_uint_t) ctx->textarea.data[ctx->look_textarea];
+            look = ctx->textarea.data[ctx->look_textarea];
             if (look == ch) {
                 if (ctx->look_textarea == ctx->textarea.len - 1) {
                     ctx->state = trim_state_textarea;
@@ -359,7 +359,6 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
 
                 } else {
                     ctx->look_textarea++;
-                break;
                 }
                 break;
             }
@@ -381,7 +380,7 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
             break;
 
         case trim_state_comment:
-            look = (ngx_uint_t) ctx->comment.data[ctx->look_comment];
+            look = ctx->comment.data[ctx->look_comment];
             if (look == ch) {
                 if (ctx->look_comment == ctx->comment.len - 1) {
                     ctx->state = trim_state_text;
