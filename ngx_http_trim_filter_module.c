@@ -399,7 +399,7 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                     ctx->look_comment++;
                 }
 
-            } else if (look != '-') {
+            } else if (ch != '-') {
                 ctx->look_comment = 0;
             }
 
