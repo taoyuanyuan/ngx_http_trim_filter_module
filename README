@@ -1,96 +1,41 @@
-**nginx的trim模块**
-    apache版url  http://www.thrull.com/corner/webserver/mod-trim/
-
-**trim on**
-
-    trim开关,删除重复空白符. 
-    如下五种情况,不做删除操作.
-    <pre  </pre 之间
-    <style  </style 之间
-    <script  </script 之间
-    <!--[if  <![endif]--> 之间
-    <textarea  </textarea 之间 
-    除此之外,  当出现  '\r'  '\n'  '\t'  ' '  这四种重复的空白符时, 保留第一次出现的空白符. 
-
-**trim_comment on**
-
-    删除注释开关, trim on 之后这个指令才生效. 
-    删除 <!-- --> 的内容.
-    但如果是ie注释, 即<!--[if   <![endif]--> 之间内容,不做删除操作.
-
-例如trim 和 trim_comment 都为 on,如下html代码
-```html
-<html>
-    <head>trim   test</head>
-<body>
-<pre>
-
-    'pre' should not be trimmed
-
-    </pre>
+Name
+  ngx_http_trim_filter_module
 
 
-     <textarea>
-      'textarea'
- should not be trimmed
+Synopsis
 
-   </textarea>
 
-<p>
-       TEXT     should   be trimmed
-   </p>
+Description
+  remove whitespace and comment.
 
-   <style>
-      'style'    should not be trimmed
 
-</style>
-           <script type="text/javascript"> 
-   'script' should 
-    not 
-    be    trimmed 
+Directives
+  trim
 
-</script>
+    syntax: *trim on | off*
+    
+    default: *trim off*
+    
+    context: *main, server, location*
+    
+    Enables or disables trim filter module.
 
-   </body>
-    </html>
+  trim_comment 
 
-<!--[if IE]> ie comment should not be trimmed  <![endif]-->
+    syntax: *comment on | off*
+    
+    default: *comment on*
+    
+    context: *main, server, location*
+    
+    Enables or disables remove html comment.
 
-<!-- if trim_comment on, this text should be removed -->
+  trim_types
 
-<!--[if !IE ]>--> non-ie html code <!--<![endif]-->
-```
-将被转换为
-```html
-<html>
-<head>trim test</head>
-<body>
-<pre> 
-
-    'pre' should not be trimmed 
-
-    </pre>
-<textarea>
-      'textarea'
- should not be trimmed
-
-   </textarea>
-<p>
-TEXT should be trimmed
-</p>
-<style>
-      'style'    should not be trimmed 
-
-</style>
-<script type="text/javascript"> 
-   'script' should 
-    not 
-    be    trimmed 
-
-</script>
-</body>
-</html>
-<!--[if IE]> ie comment should not be trimmed  <![endif]-->
-
-<!--[if !IE ]>--> non-ie html code <!--<![endif]-->
-```
+    syntax: *trim_types text/html*
+    
+    default: *trim_type text/html*
+    
+    context: *main, server, location*
+    
+    Support "text/html".
