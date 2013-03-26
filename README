@@ -20,7 +20,7 @@ Directives
     
     Enables or disables trim filter module.
 
-  comment 
+  trim_comment 
 
     syntax: *comment on | off*
     
