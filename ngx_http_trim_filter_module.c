@@ -27,7 +27,6 @@ typedef struct {
     ngx_str_t       comment_ie_end;
     ngx_str_t       textarea;
 
-    ngx_str_t       saved;
     ngx_str_t       looked;
 
     ngx_str_t      *tag_name;
@@ -36,6 +35,7 @@ typedef struct {
     ngx_chain_t    *free;
     ngx_chain_t    *busy;
 
+    size_t          saved;
     size_t          looked_tag;
     size_t          looked_comment;
 
@@ -161,15 +161,7 @@ ngx_http_trim_header_filter(ngx_http_request_t *r)
     ngx_str_set(&ctx->comment_ie, "[if");
     ngx_str_set(&ctx->comment_ie_end, "<![endif]-->");
 
-    ctx->saved.data = ngx_pnalloc(r->pool, sizeof("<!--[if") - 1);
-    if (ctx->saved.data == NULL) {
-        return NGX_ERROR;
-    }
-
-    ctx->looked.data = ngx_pnalloc(r->pool, sizeof("<!--[if") - 1);
-    if (ctx->looked.data == NULL) {
-        return NGX_ERROR;
-    }
+    ngx_str_set(&ctx->looked, "<!--[if");
 
     ngx_http_set_ctx(r, ctx, ngx_http_trim_filter_module);
 
@@ -208,7 +200,7 @@ ngx_http_trim_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
     for (ln = ctx->out, prev = NULL; ln; ln = ln->next) {
         ngx_http_trim_parse(r, ln->buf, ctx);
 
-        if (ctx->saved.len) {
+        if (ctx->saved) {
             cl = ngx_chain_get_free_buf(r->pool, &ctx->free);
             if (cl == NULL) {
                 return NGX_ERROR;
@@ -217,8 +209,8 @@ ngx_http_trim_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
             cl->buf->tag = (ngx_buf_tag_t) &ngx_http_trim_filter_module;
             cl->buf->temporary = 0;
             cl->buf->memory = 1;
-            cl->buf->pos = (u_char *) "<!--[if";
-            cl->buf->last = cl->buf->pos + ctx->saved.len;
+            cl->buf->pos = ctx->looked.data;
+            cl->buf->last = cl->buf->pos + ctx->saved;
 
             if (prev) {
                cl->next = prev->next;
@@ -231,7 +223,7 @@ ngx_http_trim_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
                prev = cl;
             }
 
-            ctx->saved.len = 0;
+            ctx->saved = 0;
         }
 
         if (ln->buf->pos == ln->buf->last && !ln->buf->last_buf) {
@@ -253,7 +245,7 @@ ngx_http_trim_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
 
     rc = ngx_http_next_body_filter(r, ctx->out);
 
-    ngx_chain_update_chains(&ctx->free, &ctx->busy, &ctx->out,
+    ngx_chain_update_chains(r->pool, &ctx->free, &ctx->busy, &ctx->out,
                             (ngx_buf_tag_t) &ngx_http_trim_filter_module);
 
     return rc;
@@ -288,7 +280,6 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                 ctx->state = trim_state_tag;
 
                 if (conf->comment_enable) {
-                    ctx->looked.data[0] = ch;
                     ctx->looked.len = 1;
                     continue;
                 }
@@ -312,7 +303,7 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                 ctx->looked_comment = 0;    /* --> */
 
                 if (conf->comment_enable) {
-                    ctx->looked.data[ctx->looked.len++] = ch;
+                    ctx->looked.len++;
                     continue;
                 }
 
@@ -344,13 +335,10 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                                        ctx->looked.len);
 
                 } else {
-                    ctx->saved.len = ctx->looked.len;
-                    ngx_memcpy(ctx->saved.data, ctx->looked.data,
-                               ctx->looked.len);
+                    ctx->saved = ctx->looked.len;
                 }
 
                 if (ch == '<') {
-                    ctx->looked.data[0] = ch;
                     ctx->looked.len = 1;
                     continue;
                 }
@@ -380,7 +368,6 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                 ctx->state = trim_state_tag;
 
                 if (conf->comment_enable) {
-                    ctx->looked.data[0] = ch;
                     ctx->looked.len = 1;
                     continue;
                 }
@@ -401,7 +388,7 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                 }
 
                 if (conf->comment_enable) {
-                    ctx->looked.data[ctx->looked.len++] = ch;
+                    ctx->looked.len++;
                     continue;
                 }
 
@@ -429,13 +416,10 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                                        ctx->looked.len);
 
                 } else {
-                    ctx->saved.len = ctx->looked.len;
-                    ngx_memcpy(ctx->saved.data, ctx->looked.data,
-                               ctx->looked.len);
+                    ctx->saved = ctx->looked.len;
                 }
 
                 if (ch == '<') {
-                    ctx->looked.data[0] = ch;
                     ctx->looked.len = 1;
                     continue;
                 }
@@ -456,9 +440,7 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                                              ctx->looked.len);
 
                         } else {
-                            ctx->saved.len = ctx->looked.len;
-                            ngx_memcpy(ctx->saved.data, ctx->looked.data,
-                                       ctx->looked.len);
+                            ctx->saved = ctx->looked.len;
                         }
                     }
                     break;
@@ -466,7 +448,7 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                 }
 
                 if (conf->comment_enable) {
-                    ctx->looked.data[ctx->looked.len++] = ch;
+                    ctx->looked.len++;
                     continue;
                 }
 
@@ -516,7 +498,6 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                 ctx->state = trim_state_tag;
 
                 if (conf->comment_enable) {
-                    ctx->looked.data[0] = ch;
                     ctx->looked.len = 1;
                     continue;
                 }
@@ -594,7 +575,6 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                 ctx->state = trim_state_tag;
 
                 if (conf->comment_enable) {
-                    ctx->looked.data[0] = ch;
                     ctx->looked.len = 1;
                     continue;
                 }
