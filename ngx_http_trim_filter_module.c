@@ -1,6 +1,6 @@
 
 /*
- *  Copyright (C) 2010-2012 Alibaba Group Holding Limited
+ *  Copyright (C) 2010-2013 Alibaba Group Holding Limited
  */
 
 
@@ -31,6 +31,10 @@ typedef struct {
     ngx_str_t       looked;
 
     ngx_str_t      *tag_name;
+
+    ngx_chain_t    *out;
+    ngx_chain_t    *free;
+    ngx_chain_t    *busy;
 
     size_t          looked_tag;
     size_t          looked_comment;
@@ -181,6 +185,7 @@ ngx_http_trim_header_filter(ngx_http_request_t *r)
 static ngx_int_t
 ngx_http_trim_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
 {
+    ngx_int_t             rc;
     ngx_chain_t          *cl, *ln, *prev;
     ngx_http_trim_ctx_t  *ctx;
 
@@ -196,28 +201,24 @@ ngx_http_trim_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
         return ngx_http_next_body_filter(r, in);
     }
 
-    for (ln = in, prev = NULL; ln; ln = ln->next) {
+    if (ngx_chain_add_copy(r->pool, &ctx->out, in) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    for (ln = ctx->out, prev = NULL; ln; ln = ln->next) {
         ngx_http_trim_parse(r, ln->buf, ctx);
 
         if (ctx->saved.len) {
-            cl = ngx_alloc_chain_link(r->pool);
+            cl = ngx_chain_get_free_buf(r->pool, &ctx->free);
             if (cl == NULL) {
                 return NGX_ERROR;
             }
 
-            cl->buf = ngx_calloc_buf(r->pool);
-            if (cl->buf == NULL) {
-                return NGX_ERROR;
-            }
-
-            cl->buf->pos = ngx_pnalloc(r->pool, ctx->saved.len);
-            if (cl->buf->pos == NULL) {
-                return NGX_ERROR;
-            }
-
-            ngx_memcpy(cl->buf->pos, ctx->saved.data, ctx->saved.len);
-            cl->buf->last = cl->buf->pos + ctx->saved.len;
+            cl->buf->tag = (ngx_buf_tag_t) &ngx_http_trim_filter_module;
+            cl->buf->temporary = 0;
             cl->buf->memory = 1;
+            cl->buf->pos = (u_char *) "<!--[if";
+            cl->buf->last = cl->buf->pos + ctx->saved.len;
 
             if (prev) {
                cl->next = prev->next;
@@ -246,11 +247,16 @@ ngx_http_trim_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
         }
     }
 
-    if (in == NULL) {
+    if (ctx->out == NULL) {
         return NGX_OK;
     }
 
-    return ngx_http_next_body_filter(r, in);
+    rc = ngx_http_next_body_filter(r, ctx->out);
+
+    ngx_chain_update_chains(&ctx->free, &ctx->busy, &ctx->out,
+                            (ngx_buf_tag_t) &ngx_http_trim_filter_module);
+
+    return rc;
 }
 
 
