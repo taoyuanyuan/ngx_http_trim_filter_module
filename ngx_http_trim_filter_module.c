@@ -27,7 +27,7 @@ typedef struct {
     ngx_str_t       comment_ie_end;
     ngx_str_t       textarea;
 
-    ngx_str_t       looked;
+    ngx_str_t       saved_comment;
 
     ngx_str_t      *tag_name;
 
@@ -161,7 +161,7 @@ ngx_http_trim_header_filter(ngx_http_request_t *r)
     ngx_str_set(&ctx->comment_ie, "[if");
     ngx_str_set(&ctx->comment_ie_end, "<![endif]-->");
 
-    ngx_str_set(&ctx->looked, "<!--[if");
+    ngx_str_set(&ctx->saved_comment, "<!--[if");
 
     ngx_http_set_ctx(r, ctx, ngx_http_trim_filter_module);
 
@@ -187,7 +187,7 @@ ngx_http_trim_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
     ctx = ngx_http_get_module_ctx(r, ngx_http_trim_filter_module);
     if (ctx == NULL) {
         return ngx_http_next_body_filter(r, in);
-     }
+    }
 
     if (in == NULL) {
         return ngx_http_next_body_filter(r, in);
@@ -209,7 +209,7 @@ ngx_http_trim_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
             cl->buf->tag = (ngx_buf_tag_t) &ngx_http_trim_filter_module;
             cl->buf->temporary = 0;
             cl->buf->memory = 1;
-            cl->buf->pos = ctx->looked.data;
+            cl->buf->pos = ctx->saved_comment.data;
             cl->buf->last = cl->buf->pos + ctx->saved;
 
             if (prev) {
@@ -280,7 +280,7 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                 ctx->state = trim_state_tag;
 
                 if (conf->comment_enable) {
-                    ctx->looked.len = 1;
+                    ctx->saved_comment.len = 1;
                     continue;
                 }
 
@@ -303,7 +303,7 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                 ctx->looked_comment = 0;    /* --> */
 
                 if (conf->comment_enable) {
-                    ctx->looked.len++;
+                    ctx->saved_comment.len++;
                     continue;
                 }
 
@@ -330,16 +330,16 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
             }
 
             if (conf->comment_enable) {
-                if ((size_t) (read - buf->pos) >= ctx->looked.len) {
-                    write = ngx_cpymem(write, ctx->looked.data,
-                                       ctx->looked.len);
+                if ((size_t) (read - buf->pos) >= ctx->saved_comment.len) {
+                    write = ngx_cpymem(write, ctx->saved_comment.data,
+                                       ctx->saved_comment.len);
 
                 } else {
-                    ctx->saved = ctx->looked.len;
+                    ctx->saved = ctx->saved_comment.len;
                 }
 
                 if (ch == '<') {
-                    ctx->looked.len = 1;
+                    ctx->saved_comment.len = 1;
                     continue;
                 }
             }
@@ -368,7 +368,7 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                 ctx->state = trim_state_tag;
 
                 if (conf->comment_enable) {
-                    ctx->looked.len = 1;
+                    ctx->saved_comment.len = 1;
                     continue;
                 }
 
@@ -388,7 +388,7 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                 }
 
                 if (conf->comment_enable) {
-                    ctx->looked.len++;
+                    ctx->saved_comment.len++;
                     continue;
                 }
 
@@ -411,16 +411,16 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
             }
 
             if (conf->comment_enable) {
-                if ((size_t) (read - buf->pos) >= ctx->looked.len) {
-                    write = ngx_cpymem(write, ctx->looked.data,
-                                       ctx->looked.len);
+                if ((size_t) (read - buf->pos) >= ctx->saved_comment.len) {
+                    write = ngx_cpymem(write, ctx->saved_comment.data,
+                                       ctx->saved_comment.len);
 
                 } else {
-                    ctx->saved = ctx->looked.len;
+                    ctx->saved = ctx->saved_comment.len;
                 }
 
                 if (ch == '<') {
-                    ctx->looked.len = 1;
+                    ctx->saved_comment.len = 1;
                     continue;
                 }
             }
@@ -435,12 +435,12 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                     ctx->looked_comment = 0;
 
                     if (conf->comment_enable) {
-                        if ((size_t) (read - buf->pos) >= ctx->looked.len) {
-                           write = ngx_cpymem(write, ctx->looked.data,
-                                             ctx->looked.len);
+                        if ((size_t) (read - buf->pos) >= ctx->saved_comment.len) {
+                           write = ngx_cpymem(write, ctx->saved_comment.data,
+                                             ctx->saved_comment.len);
 
                         } else {
-                            ctx->saved = ctx->looked.len;
+                            ctx->saved = ctx->saved_comment.len;
                         }
                     }
                     break;
@@ -448,7 +448,7 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                 }
 
                 if (conf->comment_enable) {
-                    ctx->looked.len++;
+                    ctx->saved_comment.len++;
                     continue;
                 }
 
@@ -498,7 +498,7 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                 ctx->state = trim_state_tag;
 
                 if (conf->comment_enable) {
-                    ctx->looked.len = 1;
+                    ctx->saved_comment.len = 1;
                     continue;
                 }
 
@@ -575,7 +575,7 @@ ngx_http_trim_parse(ngx_http_request_t *r, ngx_buf_t *buf,
                 ctx->state = trim_state_tag;
 
                 if (conf->comment_enable) {
-                    ctx->looked.len = 1;
+                    ctx->saved_comment.len = 1;
                     continue;
                 }
 
