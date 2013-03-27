@@ -218,8 +218,8 @@ ngx_http_trim_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
                prev = cl;
 
             } else {
-               cl->next = in;
-               in = cl;
+               cl->next = ctx->out;
+               ctx->out = cl;
                prev = cl;
             }
 
@@ -231,7 +231,7 @@ ngx_http_trim_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
                 prev->next = ln->next;
 
             } else {
-                in = ln->next;
+                ctx->out = ln->next;
             }
 
         } else {
