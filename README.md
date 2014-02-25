@@ -1,115 +1,168 @@
-# trim 模块
+# Ngx_http_trim_filter module
 
-## 介绍
+The ngx_http_trim_filter module is a filter that modifies a response by removing unnecessary whitespaces 
+(spaces, tabs, newlines) and comments from HTML (including inline javascript and css). Trim module parses 
+HTML with a state machine.
 
-该模块用于删除 html ， 内嵌 javascript 和 css 中的注释以及重复的空白符。
 
-
-## 配置
+## Example Configuration
 
     location / {
         trim on;
-        trim_jscss on;
+        trim_js on;
+        trim_css on;
     }
 
-## 指令
+## Directives
 
 **trim** `on` | `off`
 
-**默认:** `trim off`
+**Default:** `trim off`
 
-**上下文:** `http, server, location` 
+**Context:** `http, server, location` 
      
-在配置的地方使模块有效（失效），删除 html 的注释以及重复的空白符（\n，\r，\t，' ')。   
-例外：对于 `pre`，`textarea`，`ie注释`，`script`，`style` 等标签内的内容不作删除操作。   
+Enable or disable trim module for pure HTML.  
+This module will retain some contents unchanged, in case that they are enclosed by the tag `pre`,`textarea`,`script` and `style`,as well as IE/SSI/ESI comments.  
+Parameter value can contain variables.  
+Example:  
+
+    set $flag "off";
+    if ($condition) {
+        set $flag "on";
+    }
+    trim $flag;
 <br/>
 
-**trim_jscss** `on` | `off`
 
-**默认:** `trim_jscss off`
+**trim_js** `on` | `off`
 
-**上下文:** `http, server, location` 
+**Default:** `trim_js off`
+
+**Context:** `http, server, location` 
      
-在配置的地方使模块有效（失效），删除内嵌 javascript 和 css 的注释以及重复的空白符（\n，\r，\t，' ')。   
-例外：对于非javascript代码的`script`，非css代码的`style` 等标签内的内容不作删除操作。   
+Enable or disable trim module for inline javascript.  
+Parameter value can contain variables too.  
 <br/>
+
+
+**trim_css** `on` | `off`
+
+**Default:** `trim_css off`
+
+**Context:** `http, server, location` 
+     
+Enable or disable trim module for inline css.  
+Parameter value can contain variables too.  
+<br/>
+
 
 **trim_types** `MIME types`
 
-**默认:** `trim_types: text/html`
+**Default:** `trim_types: text/html`
 
-**上下文:** `http, server, location`
+**Context:** `http, server, location`
 
-定义哪些[MIME types](http://en.wikipedia.org/wiki/MIME_type)类型的响应可以被处理。  
-目前只能处理html格式的页面，js和css只针对于html内嵌的代码，不支持处理单独的js和css页面。  
-如果这样配置 `trim_type text/javascript;`，js代码将被作为html代码来处理而出错。
+Enable trim module for the specified MIME types in addition to "text/html". Responses with the “text/html” type are always processed.  
 <br/>
 
-## 调试
 
-添加请求参数http_trim=off，将关闭trim功能，返回原始代码，方便对照调试。   
-格式如下:  
-`http://www.xxx.com/index.html?http_trim=off`
+## Debug
 
-## trim规则
+Trim module will be disabled if incoming request has `http_trim=off` parameter in url.   
+e.g.  `http://www.xxx.com/index.html?http_trim=off`  
 
-### html
-#####  空白符
+## Sample
+original:
 
-+ 正文中的 '\r' 直接删除。  
-+ 正文中的 '\n' 替换为 '空格', 然后重复 \t' 和 '空格' 保留第一个。 
-+ 标签中的 '\r'，'\n'，'\t'，'空格' 保留第一个。  
-+ 标签的双引号和单引号内的空白符不做删除。 
-\<div class="no &nbsp; &nbsp; &nbsp;  trim"\>
-+ 保留第一行DTD声明的 '\n'。  
-+ `pre` 和 `texterea` 标签的内容不做删除。  
-+ `script` 和 `style` 标签的内容不做删除。  
-+ ie条件注释的内容不做删除。 
-
-##### 注释
-+ 如果是ie条件注释不做操作。
-   判断规则：`<!--[if <![endif]-->`  之间的内容判断为ie条件注释。
-+ 正常html注释直接删除.  `<!--  -->`
+    <!DOCTYPE html>
+    <textarea  >
+       trim
+            module
+    </textarea  >
+    <!--remove all-->
+    <!--[if IE]> trim module <![endif]-->
+    <!--[if !IE ]>--> trim module  <!--<![endif]-->
+    <!--# ssi-->
+    <!--esi-->
+    <pre    style  =
+        "color:   blue"  >Welcome    to    nginx!</pre  >
+    <script type="text/javascript">
+    /***  muitl comment 
+                       ***/
+    //// single comment
+    str.replace(/     /,"hello");
+    </script>
+    <style   type="text/css"  >
+    /*** css comment
+                     ! ***/
+    body
+    {
+      font-size:  20px ;
+      line-height: 150% ;
+    }
+    </style>
     
-### javascript  
-借鉴 jsmin 的处理规则 (http://www.crockford.com/javascript/jsmin.html)  
-`<script type="text/javascript">` 或者 `<script>` 标签认为是javascript。  
-##### 空白符  
-+ '('，'['，'{'，';'，','，'>'，'=' 后的 '\n'，'\t'，'空格' 直接删除。
-+ '\r' 直接删除。 
-+ 其他情况 重复的 '\n'，'\t'，'空格' 保留第一个。  
-+ 单引号和双引号内不删除。  
-     如下不做操作：  
-     "hello   &nbsp;   \\\\"  &nbsp;   world"   
-     'hello  &nbsp;       \'  &nbsp;   world'  
-+ 正则表达式的内容不删除。  
-     判断规则：'/' 前的非空字符是 ','，'('，'=' 三种的即认为是正则表达式。( 同jsmin的判断)   
-     如下不做操作：   
-     var re=/1 &nbsp; &nbsp; &nbsp;2/;     
-     data.match(/1  &nbsp;  &nbsp; 2/);  
+result:
 
-##### 注释  
-+ 删除单行注释。  `//`  
-+ 删除多行注释。  `/*   */`  
-注意：javascript也有一种条件注释，不过貌似用得很少，jsmin直接删除的，trim也是直接删除。  
-http://en.wikipedia.org/wiki/Conditional_comment  
+    <!DOCTYPE html>
+    <textarea>
+       trim  
+            module
+    </textarea>
+    <!--[if IE]> trim module <![endif]-->
+    <!--[if !IE ]>--> trim module  <!--<![endif]-->
+    <!--# ssi-->
+    <!--esi-->
+    <pre style="color:   blue">Welcome    to    nginx!</pre>
+    <script type="text/javascript">str.replace(/     /,"hello");</script>
+    <style type="text/css">body{font-size:20px;line-height:150%;}</style>
 
-### css  
-借鉴 YUI Compressor 的处理规则 (http://yui.github.io/yuicompressor/css.html)   
-`<style type="text/css">` 或者 `<style>` 标签认为是css.  
-##### 空白符  
-+ ';'，'>'，'{'，'}'，':'，',' 后的 '\n'，'\t'，'空格' 直接删除。  
-+ '\r' 直接删除。 
-+ 其他情况 连续的 '\n'， '\t' 和 '空格'  保留第一个。  
-+ 单引号和双引号内不删除。  
-     如下不做操作：  
-     "hello   &nbsp;  \\\\\"  &nbsp;    world"  
-      'hello  &nbsp;   \'   &nbsp;  &nbsp;   world' 
 
-##### 注释   
-+  child seletor hack的注释不删除。  
-      `html>/**/body p{color:blue}`  
-+  IE5 /Mac hack 的注释不删除。  
-     `/*\*/.selector{color:khaki}/**/`  
-+  其他情况删除注释。  `/*    */`  
+## Trim Rule
 
+### Html
+##### Whitespace
++ Remove '\r'.
++ Replace '\t' with space.
++ Replace multiple spaces with a single space.
++ Replace multiple '\n' with a single '\n'.
++ Replace multiple '\n' and '\t' in tag with a single space.
++ Do not trim quoted strings in tag.
++ Do not trim the contents enclosed by the tag `pre`,`textarea`,`script` and `style`.
+
+##### Comment
++ Remove html comment(`<!-- -->`).
++ Do not trim IE/SSI/ESI comments.  
+  IE comment: `<!--[if  <![endif]-->`  
+  SSI comment: `<!--#  -->`  
+  ESI comment: `<!--esi  -->`  
+
+
+### Javascript
+Contents enclosed by `<script type="text/javascript">` or `<script>` will be identified as javascript.
+
+##### Whitespace
++ Remove '\r'.
++ Remove '\t','\n' and space that behind '(',',','=',':','[','!','&','|','?',';','>','~','*','{'.
++ Replace multiple spaces with a single space.
++ Do not trim quoted strings and regular expression literals.
+
+##### Comment
++ Remove single comment. `//`
++ Remove multi comment. `/*  */`
+
+
+### Css
+Contents enclosed by `<style type="text/css">` or `<style>` will be identified as css.
+
+##### Whiltespace
++ Remove '\r'.
++ Remove '\t','\n' and space that around ';','>','{','}',':',','.
++ Replace multiple '\n' and spaces with a single space.
++ Do not trim quoted strings.
+
+##### Comment
++ Remove css comment(`/* */`).
++ Do not remove child seletor and IE5 /Mac hack comments.  
+  Child seletor hack: `html>/**/body p{color:blue}`  
+  IE5 /Mac hack: `/*\*/.selector{color:khaki}/**/`  
